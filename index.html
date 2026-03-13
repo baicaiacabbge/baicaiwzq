@@ -315,10 +315,10 @@
             myRole: null,            // 在该棋局中的角色: 'black', 'white', 'spectator'
             games: [],               // 用于列表显示的棋局
             error: null,
-            rematchRequested: false,
-            rematchPending: false,
-            likeStatus: {},
         };
+
+        // 心跳定时器（用于发布者维持waiting棋局在线状态）
+        let heartbeatInterval = null;
 
         // ==================== 辅助函数 ====================
         function createEmptyBoard() {
@@ -328,6 +328,12 @@
 
         // ==================== 渲染入口 ====================
         function renderApp() {
+            // 每次渲染新视图前，清除心跳（避免残留）
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+
             const appDiv = document.getElementById('app');
             if (!appState.nickname) {
                 appDiv.innerHTML = renderNicknameModal();
@@ -465,6 +471,19 @@
                     joinGame(gameId);
                 });
             });
+
+            // ========== 心跳：发布者维持waiting棋局在线状态 ==========
+            const myNick = appState.nickname;
+            const myGame = appState.games.find(g => g.created_by === myNick);
+            if (myGame && !heartbeatInterval) {
+                heartbeatInterval = setInterval(async () => {
+                    await supabase
+                        .from('games')
+                        .update({ updated_at: new Date().toISOString() })
+                        .eq('id', myGame.id)
+                        .eq('status', 'waiting');
+                }, 5000); // 每5秒更新一次
+            }
         }
 
         async function publishGame() {
@@ -474,7 +493,7 @@
                 .insert({
                     created_by: appState.nickname,
                     status: 'waiting',
-                    board_state: emptyBoard,   // 提供正确的棋盘
+                    board_state: emptyBoard,
                     current_turn: null,
                 })
                 .select()
@@ -488,7 +507,7 @@
         }
 
         async function joinGame(gameId) {
-            // 先检查棋局是否还在等待，且发布者在线（updated_at在最近10秒内）
+            // 先检查棋局是否还在等待，且发布者在线（updated_at在最近20秒内）
             const { data: game, error } = await supabase
                 .from('games')
                 .select('*')
@@ -502,9 +521,9 @@
                 showError('该棋局已被占用');
                 return;
             }
-            // 检查发布者是否在线（根据updated_at < 10秒前）
-            const tenSecAgo = new Date(Date.now() - 10 * 1000).toISOString();
-            if (game.updated_at < tenSecAgo) {
+            // 检查发布者是否在线（根据updated_at < 20秒前）
+            const twentySecAgo = new Date(Date.now() - 20 * 1000).toISOString();
+            if (game.updated_at < twentySecAgo) {
                 // 发布者离线，销毁棋局
                 await supabase.from('games').delete().eq('id', gameId);
                 showError('发布者已离线，棋局销毁');
@@ -925,6 +944,11 @@
 
         // ==================== 通用工具 ====================
         function backToMenu() {
+            // 清除心跳
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
             appState.view = 'menu';
             appState.currentGameId = null;
             appState.myRole = null;
