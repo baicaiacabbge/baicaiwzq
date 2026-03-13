@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班级五子棋 · 实时对战</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(145deg, #2b5a4c 0%, #1d3e33 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        .app-container {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            border-radius: 40px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .nickname-modal {
+            background: #efeae2;
+            border-radius: 32px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            margin: 40px auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .nickname-modal h2 {
+            color: #3b2e1e;
+            margin-bottom: 20px;
+        }
+        .nickname-modal input {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 18px;
+            border: 2px solid #b7a17a;
+            border-radius: 40px;
+            outline: none;
+            text-align: center;
+        }
+        .nickname-modal button {
+            margin-top: 20px;
+            background: #4f6d5c;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .nickname-modal button:hover {
+            background: #3b5244;
+        }
+        .main-menu {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 50px 0;
+        }
+        .menu-btn {
+            background: #d6c3a0;
+            border: 6px solid #5f4c3b;
+            border-radius: 60px;
+            padding: 30px 60px;
+            font-size: 36px;
+            font-weight: bold;
+            color: #2d2d2d;
+            cursor: pointer;
+            box-shadow: 0 10px 0 #3b2e1e;
+            transition: 0.1s linear;
+            text-shadow: 2px 2px 0 rgba(255,255,255,0.3);
+        }
+        .menu-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 4px 0 #3b2e1e;
+        }
+        .view-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            background: #3b2e1e;
+            padding: 16px 24px;
+            border-radius: 60px;
+            color: #efeae2;
+        }
+        .view-header button {
+            background: #b7a17a;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .games-list {
+            background: #4f6d5c;
+            border-radius: 40px;
+            padding: 20px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .game-item {
+            background: #efeae2;
+            border-radius: 40px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 18px;
+            border: 3px solid #3b2e1e;
+        }
+        .game-item button {
+            background: #4f6d5c;
+            color: white;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .game-item button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+        .my-game-badge {
+            background: #d9b650;
+            color: #1d3e33;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 40px;
+            margin-left: 10px;
+        }
+        .board-container {
+            background: #e4cfb0;
+            border-radius: 60px;
+            padding: 30px;
+            border: 8px solid #5f4c3b;
+        }
+        .board-row {
+            display: flex;
+            justify-content: center;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #5f4c3b;
+            background: #eacda0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .cell.black::after {
+            content: "";
+            width: 30px;
+            height: 30px;
+            background: #2d2d2d;
+            border-radius: 50%;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .cell.white::after {
+            content: "";
+            width: 30px;
+            height: 30px;
+            background: #f5f5f5;
+            border-radius: 50%;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .game-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+            background: #3b2e1e;
+            border-radius: 40px;
+            padding: 20px;
+            color: #efeae2;
+        }
+        .chat-area {
+            flex: 1;
+            background: #4f6d5c;
+            border-radius: 30px;
+            padding: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .chat-message {
+            background: #d6c3a0;
+            border-radius: 20px;
+            padding: 6px 12px;
+            margin-bottom: 6px;
+            color: #1d1d1d;
+            word-break: break-all;
+        }
+        .chat-input {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 8px 16px;
+            border-radius: 40px;
+            border: none;
+        }
+        .chat-input button {
+            background: #b7a17a;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            cursor: pointer;
+        }
+        .likes-area {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            margin-top: 16px;
+            font-size: 20px;
+        }
+        .like-btn {
+            background: #d9b650;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 24px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .like-btn:disabled {
+            background: #888;
+            cursor: not-allowed;
+        }
+        .rematch-controls {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 16px 0;
+        }
+        .rematch-controls button {
+            background: #b7a17a;
+            border: none;
+            border-radius: 40px;
+            padding: 10px 30px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .player-turn {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .winner-announce {
+            font-size: 32px;
+            color: gold;
+            text-align: center;
+        }
+        .search-box {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 8px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 40px;
+            border: none;
+        }
+        .error-message {
+            color: #ffaaaa;
+            background: #5a1e1e;
+            padding: 8px 16px;
+            border-radius: 40px;
+            margin-top: 8px;
+        }
+    </style>
+    <!-- 引入Supabase JS -->
+    <script src="supabase.min.js"></script>
+</head>
+<body>
+<div id="app" class="app-container">
+    <!-- 动态视图会渲染在这里 -->
+</div>
+
+<script>
+    (function() {
+        // ==================== 配置 ====================
+        const SUPABASE_URL = 'https://geijfumwqlpdsvlhapuv.supabase.co';  // 替换为你的项目URL
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlaWpmdW13cWxwZHN2bGhhcHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDE0MTYsImV4cCI6MjA4ODk3NzQxNn0.2Ujnetn9eOtYwT9Vpt2CpZ3Lrm6Bt2xWqQgWUTyZGJw';            // 替换为你的anon key
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ==================== 全局状态 ====================
+        let appState = {
+            nickname: localStorage.getItem('gobang_nickname') || '',
+            view: 'menu',           // 'menu', 'duel-list', 'spectate-list', 'board'
+            currentGameId: null,     // 当前所在的棋局ID
+            myRole: null,            // 在该棋局中的角色: 'black', 'white', 'spectator'
+            games: [],               // 用于列表显示的棋局
+            error: null,
+            rematchRequested: false,
+            rematchPending: false,
+            likeStatus: {},
+        };
+
+        // ==================== 辅助函数 ====================
+        function createEmptyBoard() {
+            // 生成15x15全0二维数组 (深拷贝，每行独立)
+            return Array(15).fill().map(() => Array(15).fill(0));
+        }
+
+        // ==================== 渲染入口 ====================
+        function renderApp() {
+            const appDiv = document.getElementById('app');
+            if (!appState.nickname) {
+                appDiv.innerHTML = renderNicknameModal();
+                attachNicknameEvents();
+                return;
+            }
+
+            switch (appState.view) {
+                case 'menu':
+                    appDiv.innerHTML = renderMenu();
+                    attachMenuEvents();
+                    break;
+                case 'duel-list':
+                    loadWaitingGames().then(() => {
+                        appDiv.innerHTML = renderDuelList();
+                        attachDuelListEvents();
+                        startWaitingGamesPoller();
+                    });
+                    break;
+                case 'spectate-list':
+                    loadPlayingGames().then(() => {
+                        appDiv.innerHTML = renderSpectateList();
+                        attachSpectateListEvents();
+                    });
+                    break;
+                case 'board':
+                    if (appState.currentGameId) {
+                        renderBoardView(appDiv);
+                    } else {
+                        backToMenu();
+                    }
+                    break;
+                default:
+                    backToMenu();
+            }
+        }
+
+        // ==================== 昵称模态框 ====================
+        function renderNicknameModal() {
+            return `
+                <div class="nickname-modal">
+                    <h2>🎋 输入你的昵称 (2-6个中文字符)</h2>
+                    <input type="text" id="nickname-input" maxlength="6" placeholder="例如：小聪明">
+                    <button id="nickname-submit">进入棋院</button>
+                    <div id="nickname-error" class="error-message"></div>
+                </div>
+            `;
+        }
+
+        function attachNicknameEvents() {
+            const input = document.getElementById('nickname-input');
+            const btn = document.getElementById('nickname-submit');
+            const errorDiv = document.getElementById('nickname-error');
+            btn.addEventListener('click', () => {
+                const val = input.value.trim();
+                if (/^[\u4e00-\u9fa5]{2,6}$/.test(val)) {
+                    appState.nickname = val;
+                    localStorage.setItem('gobang_nickname', val);
+                    appState.view = 'menu';
+                    renderApp();
+                } else {
+                    errorDiv.textContent = '请输入2-6个汉字！';
+                }
+            });
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') btn.click();
+            });
+        }
+
+        // ==================== 主菜单 ====================
+        function renderMenu() {
+            return `
+                <div class="main-menu">
+                    <div class="menu-btn" data-view="duel-list">⚔️ 双人下棋</div>
+                    <div class="menu-btn" data-view="spectate-list">👀 观战下棋</div>
+                </div>
+                <div style="text-align:center; color:#efeae2;">当前昵称：${appState.nickname}</div>
+            `;
+        }
+
+        function attachMenuEvents() {
+            document.querySelectorAll('.menu-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const view = e.target.dataset.view;
+                    appState.view = view;
+                    renderApp();
+                });
+            });
+        }
+
+        // ==================== 双人下棋列表 ====================
+        async function loadWaitingGames() {
+            const { data, error } = await supabase
+                .from('games')
+                .select('id, created_by, updated_at')
+                .eq('status', 'waiting')
+                .order('created_at', { ascending: false });
+            if (error) console.error(error);
+            else appState.games = data || [];
+        }
+
+        function renderDuelList() {
+            const myNick = appState.nickname;
+            const myGame = appState.games.find(g => g.created_by === myNick);
+            return `
+                <div class="view-header">
+                    <button id="back-to-menu">🔙 返回</button>
+                    <h2>⚔️ 等待中的对局</h2>
+                    <button id="publish-game">📢 发布棋局</button>
+                </div>
+                <div class="games-list" id="games-list">
+                    ${appState.games.length === 0 ? '<div style="color:white; text-align:center;">暂无等待中的棋局，快发布一个吧！</div>' : ''}
+                    ${appState.games.map(game => `
+                        <div class="game-item" data-game-id="${game.id}">
+                            <span>
+                                🆔 ${game.id.slice(0,8)}... 
+                                ${game.created_by === myNick ? '<span class="my-game-badge">我的棋局</span>' : ''}
+                                (发布者: ${game.created_by})
+                            </span>
+                            <button class="join-game-btn" data-game-id="${game.id}" ${game.created_by === myNick ? 'disabled' : ''}>加入</button>
+                        </div>
+                    `).join('')}
+                </div>
+                ${myGame ? `<div style="margin-top:16px; color:#efeae2;">你发布的棋局ID: ${myGame.id} (等待玩家加入...)</div>` : ''}
+                <div id="duel-error" class="error-message"></div>
+            `;
+        }
+
+        function attachDuelListEvents() {
+            document.getElementById('back-to-menu').addEventListener('click', backToMenu);
+            document.getElementById('publish-game').addEventListener('click', publishGame);
+            document.querySelectorAll('.join-game-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const gameId = e.target.dataset.gameId;
+                    joinGame(gameId);
+                });
+            });
+        }
+
+        async function publishGame() {
+            const emptyBoard = createEmptyBoard();
+            const { data, error } = await supabase
+                .from('games')
+                .insert({
+                    created_by: appState.nickname,
+                    status: 'waiting',
+                    board_state: emptyBoard,   // 提供正确的棋盘
+                    current_turn: null,
+                })
+                .select()
+                .single();
+            if (error) {
+                showError('发布失败: ' + error.message);
+            } else {
+                await loadWaitingGames();
+                renderApp();
+            }
+        }
+
+        async function joinGame(gameId) {
+            // 先检查棋局是否还在等待，且发布者在线（updated_at在最近10秒内）
+            const { data: game, error } = await supabase
+                .from('games')
+                .select('*')
+                .eq('id', gameId)
+                .single();
+            if (error || !game) {
+                showError('棋局不存在');
+                return;
+            }
+            if (game.status !== 'waiting') {
+                showError('该棋局已被占用');
+                return;
+            }
+            // 检查发布者是否在线（根据updated_at < 10秒前）
+            const tenSecAgo = new Date(Date.now() - 10 * 1000).toISOString();
+            if (game.updated_at < tenSecAgo) {
+                // 发布者离线，销毁棋局
+                await supabase.from('games').delete().eq('id', gameId);
+                showError('发布者已离线，棋局销毁');
+                await loadWaitingGames();
+                renderApp();
+                return;
+            }
+
+            // 随机分配黑白
+            const isBlack = Math.random() < 0.5;
+            const blackPlayer = isBlack ? appState.nickname : game.created_by;
+            const whitePlayer = isBlack ? game.created_by : appState.nickname;
+
+            // 更新游戏状态为playing，设置玩家和当前回合（黑先）
+            const { error: updateError } = await supabase
+                .from('games')
+                .update({
+                    black_player: blackPlayer,
+                    white_player: whitePlayer,
+                    status: 'playing',
+                    current_turn: 'black',
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', gameId)
+                .eq('status', 'waiting'); // 乐观锁防止并发
+            if (updateError) {
+                showError('加入失败，可能已被抢');
+                await loadWaitingGames();
+                renderApp();
+            } else {
+                // 成功加入，进入棋盘
+                appState.currentGameId = gameId;
+                appState.view = 'board';
+                renderApp();
+            }
+        }
+
+        // 定时清理超时等待棋局 (60秒无人加入)
+        let pollerInterval;
+        function startWaitingGamesPoller() {
+            if (pollerInterval) clearInterval(pollerInterval);
+            pollerInterval = setInterval(async () => {
+                // 删除超时waiting棋局 (updated_at < 60秒前)
+                const sixtySecAgo = new Date(Date.now() - 60 * 1000).toISOString();
+                await supabase
+                    .from('games')
+                    .delete()
+                    .eq('status', 'waiting')
+                    .lt('updated_at', sixtySecAgo);
+                // 刷新列表
+                await loadWaitingGames();
+                renderApp();
+            }, 5000);
+        }
+
+        // ==================== 观战列表 ====================
+        async function loadPlayingGames() {
+            const { data, error } = await supabase
+                .from('games')
+                .select('id, black_player, white_player, status, updated_at')
+                .eq('status', 'playing')
+                .order('created_at', { ascending: false });
+            if (error) console.error(error);
+            else appState.games = data || [];
+        }
+
+        function renderSpectateList() {
+            return `
+                <div class="view-header">
+                    <button id="back-to-menu">🔙 返回</button>
+                    <h2>👀 正在对局的棋局</h2>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="search-game-id" placeholder="输入棋局ID搜索">
+                    <button id="search-btn">🔍</button>
+                </div>
+                <div class="games-list" id="games-list">
+                    ${appState.games.length === 0 ? '<div style="color:white; text-align:center;">暂无进行中的对局</div>' : ''}
+                    ${appState.games.map(game => `
+                        <div class="game-item" data-game-id="${game.id}">
+                            <span>🆔 ${game.id.slice(0,8)}... 黑:${game.black_player || '?'} 白:${game.white_player || '?'}</span>
+                            <button class="spectate-game-btn" data-game-id="${game.id}">观战</button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function attachSpectateListEvents() {
+            document.getElementById('back-to-menu').addEventListener('click', backToMenu);
+            document.getElementById('search-btn').addEventListener('click', () => {
+                const searchId = document.getElementById('search-game-id').value.trim();
+                if (searchId) {
+                    spectateGameById(searchId);
+                }
+            });
+            document.querySelectorAll('.spectate-game-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const gameId = e.target.dataset.gameId;
+                    spectateGameById(gameId);
+                });
+            });
+        }
+
+        async function spectateGameById(gameId) {
+            const { data, error } = await supabase
+                .from('games')
+                .select('status')
+                .eq('id', gameId)
+                .single();
+            if (error || !data || data.status !== 'playing') {
+                showError('棋局不存在或已结束');
+                return;
+            }
+            appState.currentGameId = gameId;
+            appState.view = 'board';
+            renderApp();
+        }
+
+        // ==================== 棋盘视图 ====================
+        async function renderBoardView(container) {
+            // 加载游戏数据
+            const { data: game, error } = await supabase
+                .from('games')
+                .select('*')
+                .eq('id', appState.currentGameId)
+                .single();
+            if (error || !game) {
+                showError('棋局不存在');
+                backToMenu();
+                return;
+            }
+
+            // 确定我的角色
+            let myRole = 'spectator';
+            if (game.black_player === appState.nickname) myRole = 'black';
+            else if (game.white_player === appState.nickname) myRole = 'white';
+            appState.myRole = myRole;
+
+            // 订阅该游戏变化
+            setupGameSubscription(game.id);
+
+            // 加载聊天记录
+            const { data: chats } = await supabase
+                .from('chat_messages')
+                .select('*')
+                .eq('game_id', game.id)
+                .order('created_at', { ascending: true });
+
+            // 加载点赞情况
+            const { data: likes } = await supabase
+                .from('likes')
+                .select('*')
+                .eq('game_id', game.id);
+            const likeCounts = { black: 0, white: 0 };
+            const userLikedSide = {};
+            likes?.forEach(l => {
+                likeCounts[l.side]++;
+                if (l.user_name === appState.nickname) userLikedSide[l.side] = true;
+            });
+
+            // 构建棋盘HTML
+            const board = game.board_state || createEmptyBoard();
+            const boardHtml = board.map((row, i) => `
+                <div class="board-row">
+                    ${row.map((cell, j) => `
+                        <div class="cell ${cell === 1 ? 'black' : cell === 2 ? 'white' : ''}" data-row="${i}" data-col="${j}"></div>
+                    `).join('')}
+                </div>
+            `).join('');
+
+            const isGameOver = game.status === 'finished';
+            const winner = game.winner ? (game.winner === 'black' ? '黑方' : '白方') : null;
+            const currentTurnText = game.current_turn === 'black' ? '黑方' : '白方';
+            const isMyTurn = (myRole === 'black' && game.current_turn === 'black') || (myRole === 'white' && game.current_turn === 'white');
+
+            container.innerHTML = `
+                <div class="view-header">
+                    <button id="back-from-board">🔙 返回列表</button>
+                    <h2>🆔 ${game.id.slice(0,8)}  ${myRole !== 'spectator' ? (myRole === 'black' ? '⚫ 你是黑方' : '⚪ 你是白方') : '👀 观战模式'}</h2>
+                </div>
+                <div class="board-container">
+                    ${boardHtml}
+                </div>
+                <div class="game-info">
+                    <div style="flex: 1;">
+                        <div class="player-turn">${isGameOver ? '对局结束' : `轮到 ${currentTurnText}`}</div>
+                        ${isGameOver && winner ? `<div class="winner-announce">🏆 ${winner} 胜利 🏆</div>` : ''}
+                        ${!isGameOver && myRole !== 'spectator' && isMyTurn ? '<div style="color:lightgreen;">请落子</div>' : ''}
+                    </div>
+                    <div class="chat-area" id="chat-area">
+                        <div id="chat-messages">
+                            ${chats?.map(c => `<div class="chat-message"><b>${c.sender}:</b> ${c.message}</div>`).join('')}
+                        </div>
+                        <div class="chat-input">
+                            <input type="text" id="chat-input" maxlength="40" placeholder="输入消息...">
+                            <button id="send-chat">发送</button>
+                        </div>
+                    </div>
+                </div>
+                ${isGameOver ? `
+                    <div class="likes-area">
+                        <button class="like-btn" data-side="black" ${userLikedSide.black ? 'disabled' : ''}>⚫ 黑方点赞 (${likeCounts.black})</button>
+                        <button class="like-btn" data-side="white" ${userLikedSide.white ? 'disabled' : ''}>⚪ 白方点赞 (${likeCounts.white})</button>
+                    </div>
+                ` : ''}
+                ${myRole !== 'spectator' && isGameOver ? `
+                    <div class="rematch-controls">
+                        ${!game.rematch_requested_by ? '<button id="request-rematch">⚔️ 再战</button>' : ''}
+                        ${game.rematch_requested_by && game.rematch_requested_by !== appState.nickname ? `
+                            <button id="accept-rematch">✅ 接受再战</button>
+                            <button id="reject-rematch">❌ 拒绝</button>
+                        ` : ''}
+                        <button id="quit-game">🚪 退出棋局</button>
+                    </div>
+                    ${game.rematch_requested_by === appState.nickname ? '<div>等待对方接受再战...</div>' : ''}
+                ` : ''}
+                ${myRole === 'spectator' && isGameOver ? `
+                    <div style="text-align:center; margin:16px;"><button id="quit-spectate">返回观战列表</button></div>
+                ` : ''}
+            `;
+
+            // 绑定事件
+            document.getElementById('back-from-board').addEventListener('click', () => {
+                cleanupSubscriptions();
+                backToMenu();
+            });
+
+            // 落子事件
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.addEventListener('click', async (e) => {
+                    if (isGameOver || myRole === 'spectator' || !isMyTurn) return;
+                    const row = parseInt(e.target.dataset.row);
+                    const col = parseInt(e.target.dataset.col);
+                    // 检查该位置是否为空
+                    if (board[row][col] !== 0) return;
+                    // 更新数据库
+                    const newBoard = JSON.parse(JSON.stringify(board));
+                    newBoard[row][col] = myRole === 'black' ? 1 : 2;
+                    // 检查胜利
+                    const winnerSide = checkWinner(newBoard, row, col, myRole === 'black' ? 1 : 2);
+                    const updates = {
+                        board_state: newBoard,
+                        current_turn: myRole === 'black' ? 'white' : 'black',
+                    };
+                    if (winnerSide) {
+                        updates.winner = winnerSide === 1 ? 'black' : 'white';
+                        updates.status = 'finished';
+                        updates.current_turn = null;
+                    }
+                    const { error } = await supabase
+                        .from('games')
+                        .update(updates)
+                        .eq('id', game.id)
+                        .eq('current_turn', game.current_turn); // 乐观锁
+                    if (error) {
+                        alert('落子失败，可能已被抢先');
+                    }
+                });
+            });
+
+            // 聊天发送
+            document.getElementById('send-chat').addEventListener('click', async () => {
+                const input = document.getElementById('chat-input');
+                const msg = input.value.trim();
+                if (!msg) return;
+                if (msg.length > 40) {
+                    alert('消息不能超过40字');
+                    return;
+                }
+                await supabase
+                    .from('chat_messages')
+                    .insert({
+                        game_id: game.id,
+                        sender: appState.nickname,
+                        message: msg,
+                    });
+                input.value = '';
+            });
+
+            // 点赞
+            if (isGameOver) {
+                document.querySelectorAll('.like-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const side = e.target.dataset.side;
+                        if (!side) return;
+                        // 插入点赞
+                        const { error } = await supabase
+                            .from('likes')
+                            .insert({
+                                game_id: game.id,
+                                user_name: appState.nickname,
+                                side: side,
+                            });
+                        if (error) {
+                            if (error.code === '23505') { // 唯一冲突
+                                alert('你已经点过赞了');
+                            } else {
+                                alert('点赞失败');
+                            }
+                        }
+                    });
+                });
+            }
+
+            // 再战相关
+            if (myRole !== 'spectator' && isGameOver) {
+                const requestBtn = document.getElementById('request-rematch');
+                if (requestBtn) {
+                    requestBtn.addEventListener('click', async () => {
+                        await supabase
+                            .from('games')
+                            .update({ rematch_requested_by: appState.nickname })
+                            .eq('id', game.id);
+                    });
+                }
+                const acceptBtn = document.getElementById('accept-rematch');
+                if (acceptBtn) {
+                    acceptBtn.addEventListener('click', async () => {
+                        // 重置棋盘，清空赢家，设置当前回合黑方，状态playing
+                        await supabase
+                            .from('games')
+                            .update({
+                                board_state: createEmptyBoard(),
+                                current_turn: 'black',
+                                winner: null,
+                                status: 'playing',
+                                rematch_requested_by: null,
+                            })
+                            .eq('id', game.id);
+                    });
+                }
+                const rejectBtn = document.getElementById('reject-rematch');
+                if (rejectBtn) {
+                    rejectBtn.addEventListener('click', async () => {
+                        await supabase
+                            .from('games')
+                            .update({ rematch_requested_by: null })
+                            .eq('id', game.id);
+                    });
+                }
+                const quitBtn = document.getElementById('quit-game');
+                if (quitBtn) {
+                    quitBtn.addEventListener('click', async () => {
+                        await supabase.from('games').delete().eq('id', game.id);
+                        cleanupSubscriptions();
+                        backToMenu();
+                    });
+                }
+            }
+
+            // 观战者退出按钮
+            if (myRole === 'spectator' && isGameOver) {
+                document.getElementById('quit-spectate')?.addEventListener('click', () => {
+                    cleanupSubscriptions();
+                    backToMenu();
+                });
+            }
+        }
+
+        // 五子棋胜利检测 (简化版)
+        function checkWinner(board, row, col, player) {
+            const directions = [[1,0],[0,1],[1,1],[1,-1]];
+            for (let [dx, dy] of directions) {
+                let count = 1;
+                // 正方向
+                for (let i = 1; i < 5; i++) {
+                    const nr = row + dx * i, nc = col + dy * i;
+                    if (nr < 0 || nr >= 15 || nc < 0 || nc >= 15 || board[nr][nc] !== player) break;
+                    count++;
+                }
+                // 反方向
+                for (let i = 1; i < 5; i++) {
+                    const nr = row - dx * i, nc = col - dy * i;
+                    if (nr < 0 || nr >= 15 || nc < 0 || nc >= 15 || board[nr][nc] !== player) break;
+                    count++;
+                }
+                if (count >= 5) return player;
+            }
+            return null;
+        }
+
+        // 实时订阅
+        let gameSubscription;
+        function setupGameSubscription(gameId) {
+            if (gameSubscription) supabase.removeChannel(gameSubscription);
+            gameSubscription = supabase.channel(`game:${gameId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, payload => {
+                    if (payload.eventType === 'DELETE') {
+                        alert('棋局已结束或解散');
+                        cleanupSubscriptions();
+                        backToMenu();
+                    } else {
+                        // 更新视图
+                        renderApp();
+                    }
+                })
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `game_id=eq.${gameId}` }, payload => {
+                    // 追加聊天消息到界面
+                    const chatDiv = document.getElementById('chat-messages');
+                    if (chatDiv) {
+                        const msg = payload.new;
+                        chatDiv.innerHTML += `<div class="chat-message"><b>${msg.sender}:</b> ${msg.message}</div>`;
+                        chatDiv.scrollTop = chatDiv.scrollHeight;
+                    }
+                })
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'likes', filter: `game_id=eq.${gameId}` }, payload => {
+                    // 刷新点赞区域（简单重新渲染）
+                    renderApp();
+                })
+                .subscribe();
+        }
+
+        function cleanupSubscriptions() {
+            if (gameSubscription) supabase.removeChannel(gameSubscription);
+            if (pollerInterval) clearInterval(pollerInterval);
+        }
+
+        // ==================== 通用工具 ====================
+        function backToMenu() {
+            appState.view = 'menu';
+            appState.currentGameId = null;
+            appState.myRole = null;
+            cleanupSubscriptions();
+            renderApp();
+        }
+
+        function showError(msg) {
+            appState.error = msg;
+            renderApp();
+            setTimeout(() => { appState.error = null; renderApp(); }, 3000);
+        }
+
+        // 定时ping防止休眠 (每5分钟)
+        setInterval(() => {
+            supabase.from('games').select('id', { count: 'exact', head: true });
+        }, 5 * 60 * 1000);
+
+        // 启动应用
+        renderApp();
+    })();
+</script>
+</body>
+</html>
