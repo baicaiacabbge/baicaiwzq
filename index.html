@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>班级五子棋 · 实时对战</title>
     <style>
         * {
@@ -149,19 +149,23 @@
             border-radius: 40px;
             margin-left: 10px;
         }
+        /* 响应式棋盘 */
         .board-container {
             background: #e4cfb0;
             border-radius: 60px;
             padding: 30px;
             border: 8px solid #5f4c3b;
+            max-width: 700px;
+            margin: 0 auto;
         }
-        .board-row {
-            display: flex;
-            justify-content: center;
+        .board {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            gap: 0;
+            background: #eacda0;
         }
         .cell {
-            width: 40px;
-            height: 40px;
+            aspect-ratio: 1 / 1;
             border: 1px solid #5f4c3b;
             background: #eacda0;
             position: relative;
@@ -172,16 +176,16 @@
         }
         .cell.black::after {
             content: "";
-            width: 30px;
-            height: 30px;
+            width: 80%;
+            height: 80%;
             background: #2d2d2d;
             border-radius: 50%;
             box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
         .cell.white::after {
             content: "";
-            width: 30px;
-            height: 30px;
+            width: 80%;
+            height: 80%;
             background: #f5f5f5;
             border-radius: 50%;
             box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
@@ -291,6 +295,15 @@
             border-radius: 40px;
             margin-top: 8px;
         }
+        /* 手机优化 */
+        @media (max-width: 600px) {
+            .board-container {
+                padding: 15px;
+            }
+            .game-info {
+                flex-direction: column;
+            }
+        }
     </style>
     <!-- 引入Supabase JS -->
     <script src="supabase.min.js"></script>
@@ -317,21 +330,26 @@
             error: null,
         };
 
-        // 心跳定时器（用于发布者维持waiting棋局在线状态）
+        // 心跳定时器（发布者维持waiting棋局在线状态）
         let heartbeatInterval = null;
+        // 发布者等待棋局实时订阅（用于自动进入棋盘）
+        let myWaitingSubscription = null;
 
         // ==================== 辅助函数 ====================
         function createEmptyBoard() {
-            // 生成15x15全0二维数组 (深拷贝，每行独立)
             return Array(15).fill().map(() => Array(15).fill(0));
         }
 
         // ==================== 渲染入口 ====================
         function renderApp() {
-            // 每次渲染新视图前，清除心跳（避免残留）
+            // 清除可能残留的心跳和订阅
             if (heartbeatInterval) {
                 clearInterval(heartbeatInterval);
                 heartbeatInterval = null;
+            }
+            if (myWaitingSubscription) {
+                supabase.removeChannel(myWaitingSubscription);
+                myWaitingSubscription = null;
             }
 
             const appDiv = document.getElementById('app');
@@ -351,6 +369,8 @@
                         appDiv.innerHTML = renderDuelList();
                         attachDuelListEvents();
                         startWaitingGamesPoller();
+                        // 为发布者添加实时监听（如果有自己的等待棋局）
+                        subscribeToMyWaitingGame();
                     });
                     break;
                 case 'spectate-list':
@@ -369,6 +389,38 @@
                 default:
                     backToMenu();
             }
+        }
+
+        // 监听自己发布的等待棋局，一旦状态变为 playing，自动进入棋盘
+        function subscribeToMyWaitingGame() {
+            const myNick = appState.nickname;
+            const myGame = appState.games.find(g => g.created_by === myNick);
+            if (!myGame) return;
+
+            if (myWaitingSubscription) supabase.removeChannel(myWaitingSubscription);
+            myWaitingSubscription = supabase.channel(`my-waiting-${myGame.id}`)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'games',
+                    filter: `id=eq.${myGame.id}`
+                }, (payload) => {
+                    const newGame = payload.new;
+                    if (newGame.status === 'playing') {
+                        // 自动进入棋盘
+                        appState.currentGameId = myGame.id;
+                        appState.view = 'board';
+                        // 清除心跳和当前订阅
+                        if (heartbeatInterval) {
+                            clearInterval(heartbeatInterval);
+                            heartbeatInterval = null;
+                        }
+                        supabase.removeChannel(myWaitingSubscription);
+                        myWaitingSubscription = null;
+                        renderApp();
+                    }
+                })
+                .subscribe();
         }
 
         // ==================== 昵称模态框 ====================
@@ -482,7 +534,7 @@
                         .update({ updated_at: new Date().toISOString() })
                         .eq('id', myGame.id)
                         .eq('status', 'waiting');
-                }, 5000); // 每5秒更新一次
+                }, 5000);
             }
         }
 
@@ -521,7 +573,6 @@
                 showError('该棋局已被占用');
                 return;
             }
-            // 检查发布者是否在线（根据updated_at < 20秒前）
             const twentySecAgo = new Date(Date.now() - 20 * 1000).toISOString();
             if (game.updated_at < twentySecAgo) {
                 // 发布者离线，销毁棋局
@@ -548,13 +599,13 @@
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', gameId)
-                .eq('status', 'waiting'); // 乐观锁防止并发
+                .eq('status', 'waiting'); // 乐观锁
             if (updateError) {
                 showError('加入失败，可能已被抢');
                 await loadWaitingGames();
                 renderApp();
             } else {
-                // 成功加入，进入棋盘
+                // 成功加入，进入棋盘（加入方直接进入）
                 appState.currentGameId = gameId;
                 appState.view = 'board';
                 renderApp();
@@ -566,14 +617,12 @@
         function startWaitingGamesPoller() {
             if (pollerInterval) clearInterval(pollerInterval);
             pollerInterval = setInterval(async () => {
-                // 删除超时waiting棋局 (updated_at < 60秒前)
                 const sixtySecAgo = new Date(Date.now() - 60 * 1000).toISOString();
                 await supabase
                     .from('games')
                     .delete()
                     .eq('status', 'waiting')
                     .lt('updated_at', sixtySecAgo);
-                // 刷新列表
                 await loadWaitingGames();
                 renderApp();
             }, 5000);
@@ -616,9 +665,7 @@
             document.getElementById('back-to-menu').addEventListener('click', backToMenu);
             document.getElementById('search-btn').addEventListener('click', () => {
                 const searchId = document.getElementById('search-game-id').value.trim();
-                if (searchId) {
-                    spectateGameById(searchId);
-                }
+                if (searchId) spectateGameById(searchId);
             });
             document.querySelectorAll('.spectate-game-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -645,7 +692,6 @@
 
         // ==================== 棋盘视图 ====================
         async function renderBoardView(container) {
-            // 加载游戏数据
             const { data: game, error } = await supabase
                 .from('games')
                 .select('*')
@@ -657,23 +703,19 @@
                 return;
             }
 
-            // 确定我的角色
             let myRole = 'spectator';
             if (game.black_player === appState.nickname) myRole = 'black';
             else if (game.white_player === appState.nickname) myRole = 'white';
             appState.myRole = myRole;
 
-            // 订阅该游戏变化
             setupGameSubscription(game.id);
 
-            // 加载聊天记录
             const { data: chats } = await supabase
                 .from('chat_messages')
                 .select('*')
                 .eq('game_id', game.id)
                 .order('created_at', { ascending: true });
 
-            // 加载点赞情况
             const { data: likes } = await supabase
                 .from('likes')
                 .select('*')
@@ -685,15 +727,12 @@
                 if (l.user_name === appState.nickname) userLikedSide[l.side] = true;
             });
 
-            // 构建棋盘HTML
             const board = game.board_state || createEmptyBoard();
-            const boardHtml = board.map((row, i) => `
-                <div class="board-row">
-                    ${row.map((cell, j) => `
-                        <div class="cell ${cell === 1 ? 'black' : cell === 2 ? 'white' : ''}" data-row="${i}" data-col="${j}"></div>
-                    `).join('')}
-                </div>
-            `).join('');
+            const boardHtml = board.map((row, i) => 
+                row.map((cell, j) => 
+                    `<div class="cell ${cell === 1 ? 'black' : cell === 2 ? 'white' : ''}" data-row="${i}" data-col="${j}"></div>`
+                ).join('')
+            ).join('');
 
             const isGameOver = game.status === 'finished';
             const winner = game.winner ? (game.winner === 'black' ? '黑方' : '白方') : null;
@@ -706,7 +745,9 @@
                     <h2>🆔 ${game.id.slice(0,8)}  ${myRole !== 'spectator' ? (myRole === 'black' ? '⚫ 你是黑方' : '⚪ 你是白方') : '👀 观战模式'}</h2>
                 </div>
                 <div class="board-container">
-                    ${boardHtml}
+                    <div class="board">
+                        ${boardHtml}
+                    </div>
                 </div>
                 <div class="game-info">
                     <div style="flex: 1;">
@@ -746,24 +787,19 @@
                 ` : ''}
             `;
 
-            // 绑定事件
             document.getElementById('back-from-board').addEventListener('click', () => {
                 cleanupSubscriptions();
                 backToMenu();
             });
 
-            // 落子事件
             document.querySelectorAll('.cell').forEach(cell => {
                 cell.addEventListener('click', async (e) => {
                     if (isGameOver || myRole === 'spectator' || !isMyTurn) return;
                     const row = parseInt(e.target.dataset.row);
                     const col = parseInt(e.target.dataset.col);
-                    // 检查该位置是否为空
                     if (board[row][col] !== 0) return;
-                    // 更新数据库
                     const newBoard = JSON.parse(JSON.stringify(board));
                     newBoard[row][col] = myRole === 'black' ? 1 : 2;
-                    // 检查胜利
                     const winnerSide = checkWinner(newBoard, row, col, myRole === 'black' ? 1 : 2);
                     const updates = {
                         board_state: newBoard,
@@ -778,14 +814,11 @@
                         .from('games')
                         .update(updates)
                         .eq('id', game.id)
-                        .eq('current_turn', game.current_turn); // 乐观锁
-                    if (error) {
-                        alert('落子失败，可能已被抢先');
-                    }
+                        .eq('current_turn', game.current_turn);
+                    if (error) alert('落子失败，可能已被抢先');
                 });
             });
 
-            // 聊天发送
             document.getElementById('send-chat').addEventListener('click', async () => {
                 const input = document.getElementById('chat-input');
                 const msg = input.value.trim();
@@ -804,13 +837,11 @@
                 input.value = '';
             });
 
-            // 点赞
             if (isGameOver) {
                 document.querySelectorAll('.like-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const side = e.target.dataset.side;
                         if (!side) return;
-                        // 插入点赞
                         const { error } = await supabase
                             .from('likes')
                             .insert({
@@ -819,17 +850,13 @@
                                 side: side,
                             });
                         if (error) {
-                            if (error.code === '23505') { // 唯一冲突
-                                alert('你已经点过赞了');
-                            } else {
-                                alert('点赞失败');
-                            }
+                            if (error.code === '23505') alert('你已经点过赞了');
+                            else alert('点赞失败');
                         }
                     });
                 });
             }
 
-            // 再战相关
             if (myRole !== 'spectator' && isGameOver) {
                 const requestBtn = document.getElementById('request-rematch');
                 if (requestBtn) {
@@ -843,7 +870,6 @@
                 const acceptBtn = document.getElementById('accept-rematch');
                 if (acceptBtn) {
                     acceptBtn.addEventListener('click', async () => {
-                        // 重置棋盘，清空赢家，设置当前回合黑方，状态playing
                         await supabase
                             .from('games')
                             .update({
@@ -875,7 +901,6 @@
                 }
             }
 
-            // 观战者退出按钮
             if (myRole === 'spectator' && isGameOver) {
                 document.getElementById('quit-spectate')?.addEventListener('click', () => {
                     cleanupSubscriptions();
@@ -884,18 +909,15 @@
             }
         }
 
-        // 五子棋胜利检测 (简化版)
         function checkWinner(board, row, col, player) {
             const directions = [[1,0],[0,1],[1,1],[1,-1]];
             for (let [dx, dy] of directions) {
                 let count = 1;
-                // 正方向
                 for (let i = 1; i < 5; i++) {
                     const nr = row + dx * i, nc = col + dy * i;
                     if (nr < 0 || nr >= 15 || nc < 0 || nc >= 15 || board[nr][nc] !== player) break;
                     count++;
                 }
-                // 反方向
                 for (let i = 1; i < 5; i++) {
                     const nr = row - dx * i, nc = col - dy * i;
                     if (nr < 0 || nr >= 15 || nc < 0 || nc >= 15 || board[nr][nc] !== player) break;
@@ -906,7 +928,6 @@
             return null;
         }
 
-        // 实时订阅
         let gameSubscription;
         function setupGameSubscription(gameId) {
             if (gameSubscription) supabase.removeChannel(gameSubscription);
@@ -917,12 +938,10 @@
                         cleanupSubscriptions();
                         backToMenu();
                     } else {
-                        // 更新视图
                         renderApp();
                     }
                 })
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `game_id=eq.${gameId}` }, payload => {
-                    // 追加聊天消息到界面
                     const chatDiv = document.getElementById('chat-messages');
                     if (chatDiv) {
                         const msg = payload.new;
@@ -931,7 +950,6 @@
                     }
                 })
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'likes', filter: `game_id=eq.${gameId}` }, payload => {
-                    // 刷新点赞区域（简单重新渲染）
                     renderApp();
                 })
                 .subscribe();
@@ -942,12 +960,14 @@
             if (pollerInterval) clearInterval(pollerInterval);
         }
 
-        // ==================== 通用工具 ====================
         function backToMenu() {
-            // 清除心跳
             if (heartbeatInterval) {
                 clearInterval(heartbeatInterval);
                 heartbeatInterval = null;
+            }
+            if (myWaitingSubscription) {
+                supabase.removeChannel(myWaitingSubscription);
+                myWaitingSubscription = null;
             }
             appState.view = 'menu';
             appState.currentGameId = null;
@@ -967,7 +987,6 @@
             supabase.from('games').select('id', { count: 'exact', head: true });
         }, 5 * 60 * 1000);
 
-        // 启动应用
         renderApp();
     })();
 </script>
