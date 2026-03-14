@@ -1,729 +1,628 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>五子棋 · 跨平台对弈</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>谁是卧底 · 六人实时版 (Supabase)</title>
+    <!-- 简洁样式 (Tailwind CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: #2b3a4a;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 12px;
-        }
-        .app-container {
-            max-width: 1300px;
-            width: 100%;
-            background: #ecf0f3;
-            border-radius: 32px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            overflow: hidden;
-            padding: 20px;
-        }
-        /* 响应式 */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            background: #34495e;
-            color: white;
-            padding: 16px 24px;
-            border-radius: 28px 28px 0 0;
-            margin-bottom: 20px;
-        }
-        .player-id {
-            background: #2c3e50;
-            padding: 6px 16px;
-            border-radius: 40px;
-            font-size: 0.9rem;
-            word-break: break-all;
-            max-width: 260px;
-        }
-        .main-menu {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-        .btn {
-            background: white;
-            border: none;
-            padding: 14px 36px;
-            border-radius: 60px;
-            font-size: 1.3rem;
-            font-weight: bold;
-            color: #2c3e50;
-            box-shadow: 0 5px 10px rgba(0,0,0,0.1);
-            cursor: pointer;
-            transition: 0.2s;
-            border: 2px solid transparent;
-        }
-        .btn-primary {
-            background: #f1c40f;
-            color: #2c3e50;
-        }
-        .btn-secondary {
-            background: #b0c4de;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn:disabled { opacity: 0.4; }
-
-        .panel {
-            background: #f8fafd;
-            border-radius: 32px;
-            padding: 20px;
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.8), 0 8px 18px rgba(0,0,0,0.1);
-        }
-
-        .game-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 260px;
-            overflow-y: auto;
-            padding: 8px 4px;
-        }
-        .game-item {
-            background: white;
-            border-radius: 50px;
-            padding: 12px 22px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-            border: 1px solid #d0ddee;
-        }
-        .game-id {
-            font-family: monospace;
-            font-size: 1rem;
-            background: #ecf0f3;
-            padding: 4px 14px;
-            border-radius: 40px;
-        }
-        .badge {
-            background: #2ecc71;
-            color: white;
-            padding: 6px 16px;
-            border-radius: 30px;
-            font-size: 0.85rem;
-        }
-
-        /* 棋盘页 */
-        .board-screen {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-        .board-area {
-            flex: 2 1 500px;
-            min-width: 320px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .chat-area {
-            flex: 1 1 280px;
-            background: white;
-            border-radius: 32px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-        }
-        canvas {
-            width: 100%;
-            aspect-ratio: 1/1;
-            background: #e8d5b5;
-            border-radius: 32px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-            touch-action: none;
-            max-width: 550px;
-        }
-        .turn-indicator {
-            font-size: 1.5rem;
-            margin: 16px 0 8px;
-            padding: 8px 28px;
-            border-radius: 48px;
-            background: #2c3e50;
-            color: white;
-        }
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 350px;
-            margin-bottom: 12px;
-            border: 1px solid #cbd5e0;
-            border-radius: 24px;
-            padding: 16px;
-            background: #f1f6fa;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .chat-msg {
-            background: white;
-            padding: 8px 14px;
-            border-radius: 24px;
-            word-break: break-word;
-            font-size: 0.95rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            max-width: 95%;
-        }
-        .chat-msg small { color: #4a6a8b; font-weight: 600; margin-right: 8px; }
-        .chat-input {
-            display: flex;
-            gap: 8px;
-        }
-        .chat-input input {
-            flex: 1;
-            border: 1px solid #ccd7e6;
-            border-radius: 60px;
-            padding: 12px 16px;
-            font-size: 1rem;
-        }
-        .vote-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            margin: 16px 0;
-        }
-        .vote-btn {
-            background: #f39c12;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 40px;
-            font-weight: bold;
-            color: white;
-        }
-
-        .back-home {
-            background: #95a5a6;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 40px;
-            cursor: pointer;
-            text-align: center;
-            margin-top: 16px;
-        }
-        .hidden { display: none !important; }
-        .flex-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2d3e50;
-            color: white;
-            padding: 14px 32px;
-            border-radius: 60px;
-            box-shadow: 0 8px 16px black;
-        }
-        /* 手机优化 */
-        @media (max-width: 700px) {
-            .board-screen { flex-direction: column; }
-            .btn { padding: 12px 24px; font-size: 1.1rem; }
-        }
+        .turn-highlight { box-shadow: 0 0 0 3px #fbbf24; }
+        .voted-bg { background-color: #d1d5db; }
     </style>
-    <!-- Supabase JS -->
+    <!-- Supabase JS (v2) -->
     <script src="supabase.min.js"></script>
 </head>
-<body>
-<div id="app" class="app-container">
-    <!-- 头部 -->
-    <div class="header">
-        <span>⚫ 五子棋 · 实时对弈 ⚪</span>
-        <span class="player-id" id="playerIdDisplay"></span>
-    </div>
+<body class="bg-gray-100 p-4 md:p-8 font-sans antialiased">
 
-    <!-- 主界面（默认可见） -->
-    <div id="mainView">
-        <div class="main-menu">
-            <button class="btn btn-primary" id="dualBtn">👥 双人下棋</button>
-            <button class="btn btn-secondary" id="watchBtn">👀 观战下棋</button>
-        </div>
-
-        <!-- 双人下棋扩展面板 -->
-        <div id="dualPanel" class="panel hidden">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>⚡ 发布对局</h2>
-                <button class="btn" id="publishGameBtn" style="padding: 8px 20px;">➕ 发布新棋局</button>
-            </div>
-            <p style="margin: 8px 0 4px; color: #e67e22;">每分钟仅可发布一次</p>
-            <div id="waitingList" class="game-list">
-                <!-- 动态等待棋局 -->
-            </div>
-            <div class="back-home" id="backFromDual">⬅ 返回主界面</div>
-        </div>
-
-        <!-- 观战面板 -->
-        <div id="watchPanel" class="panel hidden">
-            <div class="flex-row" style="justify-content: space-between;">
-                <h2>🎥 正在对局</h2>
-                <div style="display: flex; gap: 6px;">
-                    <input type="text" id="searchGameId" placeholder="输入棋局ID搜索" style="padding: 8px; border-radius: 40px; border:1px solid #ccc;">
-                    <button class="btn" id="searchGameBtn" style="padding: 8px 18px;">搜索</button>
-                </div>
-            </div>
-            <div id="activeGamesList" class="game-list" style="max-height: 350px;"></div>
-            <div class="back-home" id="backFromWatch">⬅ 返回主界面</div>
-        </div>
-
-        <!-- 对局记录 -->
-        <div style="margin-top: 30px;">
-            <h3>📜 我的对局记录 (24h)</h3>
-            <div id="myRecords" class="game-list" style="max-height: 200px;"></div>
+<div class="max-w-6xl mx-auto">
+    <!-- 头部标题 & 连接状态 -->
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold text-indigo-700">🕵️ 谁是卧底 · 六人局</h1>
+        <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow text-sm">
+            <span class="relative flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+            <span id="connectionStatus" class="text-gray-600">实时同步中</span>
         </div>
     </div>
 
-    <!-- 棋盘界面 (默认隐藏) -->
-    <div id="boardView" class="hidden">
-        <div class="board-screen">
-            <div class="board-area">
-                <canvas id="gobanCanvas" width="550" height="550"></canvas>
-                <div id="turnDisplay" class="turn-indicator"></div>
-                <div id="gameStatus" style="font-size: 1.2rem; margin-bottom: 6px;"></div>
-                <!-- 玩家操作区 (对局双方可见) -->
-                <div id="playerActions" class="flex-row" style="justify-content: center; gap: 15px; margin: 10px 0;"></div>
-                <!-- 观战点赞区 (对局完成后显示) -->
-                <div id="voteArea" class="vote-buttons hidden"></div>
-                <div class="back-home" id="leaveGameBtn">🚪 退出棋局 / 返回</div>
-            </div>
-            <div class="chat-area">
-                <h3>💬 实时聊天 (≤40字)</h3>
-                <div id="chatMessages" class="chat-messages"></div>
-                <div class="chat-input">
-                    <input type="text" id="chatInput" maxlength="40" placeholder="输入消息...">
-                    <button class="btn" id="sendChatBtn" style="padding: 8px 20px;">发送</button>
+    <!-- 主网格: 左侧玩家列表 / 右侧游戏面板 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 左侧：玩家列表 & 控制区 -->
+        <div class="lg:col-span-1 space-y-4">
+            <!-- 昵称/加入卡片 -->
+            <div class="bg-white rounded-2xl shadow-md p-5">
+                <h2 class="text-lg font-semibold mb-3 text-gray-800">👤 你的身份</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="nicknameInput" placeholder="输入昵称" value="玩家" class="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+                    <button id="joinBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">进入房间</button>
                 </div>
+                <p id="selfWordDisplay" class="mt-3 text-sm bg-yellow-50 p-2 rounded-lg border border-yellow-200 hidden"><span class="font-mono font-bold"></span></p>
+            </div>
+
+            <!-- 房间玩家列表 (实时) -->
+            <div class="bg-white rounded-2xl shadow-md p-5">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-gray-800">👥 房间玩家 (<span id="playerCount">0</span>/6)</h2>
+                    <button id="leaveBtn" class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full transition">离开</button>
+                </div>
+                <ul id="playerList" class="space-y-2 max-h-64 overflow-y-auto">
+                    <li class="text-gray-400 text-sm">暂无玩家，输入昵称加入</li>
+                </ul>
+                <div class="mt-4 text-xs text-gray-500 border-t pt-3">
+                    <p>⚡ 满6人自动开局 · 每轮发言30秒可跳过</p>
+                    <p>💬 投票阶段点击玩家投票，可弃票</p>
+                </div>
+            </div>
+
+            <!-- 游戏状态简报 -->
+            <div class="bg-white rounded-2xl shadow-md p-5">
+                <h2 class="text-lg font-semibold mb-2 text-gray-800">🎮 对局状态</h2>
+                <div id="gamePhaseInfo" class="text-sm space-y-1">
+                    <p>阶段: <span class="font-mono bg-gray-100 px-2 py-0.5 rounded">等待玩家</span></p>
+                    <p>本轮词: <span id="wordHint" class="font-medium">???</span></p>
+                    <p>剩余存活: <span id="aliveCount">0</span></p>
+                </div>
+                <!-- 仅调试/动作 (投票/跳过按钮动态出现在右侧) -->
+            </div>
+        </div>
+
+        <!-- 右侧：游戏主舞台 (座位 & 操作) -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-2xl shadow-md p-5">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">🪑 玩家座位 <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">1~6号</span></h2>
+                
+                <!-- 6人网格座位 -->
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="seatsContainer">
+                    <!-- 动态生成6个座位 用JS渲染 -->
+                </div>
+
+                <!-- 游戏操作区 (根据阶段显示) -->
+                <div id="actionArea" class="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200 min-h-[100px]">
+                    <div class="text-center text-gray-400">等待游戏开始…</div>
+                </div>
+
+                <!-- 投票结果/淘汰信息 -->
+                <div id="gameMessage" class="mt-4 text-sm text-center text-gray-600"></div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    (async function() {
-        // ==================== 配置 Supabase ====================
-        const SUPABASE_URL = 'https://geijfumwqlpdsvlhapuv.supabase.co';   // 请替换为你的实际URL
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlaWpmdW13cWxwZHN2bGhhcHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDE0MTYsImV4cCI6MjA4ODk3NzQxNn0.2Ujnetn9eOtYwT9Vpt2CpZ3Lrm6Bt2xWqQgWUTyZGJw';              // 请替换为你的实际anonKey
+    (function() {
+        // ---------- 配置 Supabase ----------
+        const SUPABASE_URL = 'https://geijfumwqlpdsvlhapuv.supabase.co';    // 替换为你的项目URL
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlaWpmdW13cWxwZHN2bGhhcHV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDE0MTYsImV4cCI6MjA4ODk3NzQxNn0.2Ujnetn9eOtYwT9Vpt2CpZ3Lrm6Bt2xWqQgWUTyZGJw';               // 替换为你的anon key
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ==================== 玩家ID管理 ====================
-        let playerId = localStorage.getItem('goban_player_id');
-        if (!playerId) {
-            playerId = crypto.randomUUID ? crypto.randomUUID() : 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('goban_player_id', playerId);
+        // ---------- 词库 (100+ 组 [平民词, 卧底词]) ----------
+        const WORD_PAIRS = [
+            ["面包", "蛋糕"], ["电脑", "电视"], ["手机", "平板"], ["橘子", "柠檬"], ["可乐", "雪碧"],
+            ["足球", "篮球"], ["电影", "电视剧"], ["咖啡", "奶茶"], ["钢琴", "小提琴"], ["老虎", "狮子"],
+            ["玫瑰", "月季"], ["冰箱", "空调"], ["火车", "高铁"], ["铅笔", "圆珠笔"], ["老师", "班主任"],
+            ["医生", "护士"], ["警察", "保安"], ["演员", "歌手"], ["导演", "编剧"], ["苹果", "香蕉"],
+            ["葡萄", "樱桃"], ["西瓜", "哈密瓜"], ["饺子", "馄饨"], ["面条", "米粉"], ["火锅", "麻辣烫"],
+            ["游泳", "潜水"], ["跑步", "散步"], ["读书", "看报"], ["写字", "画画"], ["吉他", "贝斯"],
+            ["鼓", "锣"], ["数学", "物理"], ["化学", "生物"], ["语文", "英语"], ["历史", "地理"],
+            ["微博", "抖音"], ["微信", "QQ"], ["淘宝", "京东"], ["美团", "饿了么"], ["百度", "谷歌"],
+            ["沙漠", "戈壁"], ["森林", "草原"], ["海洋", "湖泊"], ["山峰", "丘陵"], ["律师", "法官"],
+            ["会计", "出纳"], ["司机", "导游"], ["厨师", "服务员"], ["宇航员", "飞行员"], ["马", "驴"],
+            ["猫", "狗"], ["老鼠", "松鼠"], ["蛇", "蜥蜴"], ["老鹰", "乌鸦"], ["蚊子", "苍蝇"],
+            ["沙发", "椅子"], ["床", "榻榻米"], ["台灯", "吊灯"], ["手表", "闹钟"], ["项链", "手链"],
+            ["戒指", "耳环"], ["口红", "唇膏"], ["粉底", "遮瑕"], ["洗发水", "沐浴露"], ["洗面奶", "香皂"],
+            ["下雨", "下雪"], ["打雷", "闪电"], ["晴天", "阴天"], ["台风", "龙卷风"], ["地铁", "公交"],
+            ["出租车", "网约车"], ["摩托车", "电动车"], ["自行车", "三轮车"], ["飞机", "火箭"], ["轮船", "游艇"],
+            ["包子", "馒头"], ["油条", "煎饼"], ["豆浆", "牛奶"], ["粥", "汤"], ["米饭", "炒饭"],
+            ["牛排", "猪排"], ["鸡腿", "鸡翅"], ["烤鸭", "烧鹅"], ["三文鱼", "金枪鱼"], ["虾", "蟹"],
+            ["麻辣", "香辣"], ["酸甜", "甜辣"], ["苦瓜", "黄连"], ["糖", "蜜"], ["盐", "味精"],
+            ["酱油", "醋"], ["红酒", "白酒"], ["啤酒", "黄酒"], ["茶叶", "咖啡"], ["可乐", "七喜"],
+            ["动画片", "漫画"], ["游戏", "电竞"], ["VR", "AR"], ["AI", "人工智障"]  // 超过100组
+        ];
+
+        // ---------- 全局变量 ----------
+        let currentClientId = localStorage.getItem('who_undercover_client_id') || crypto.randomUUID();
+        localStorage.setItem('who_undercover_client_id', currentClientId);
+        let currentNickname = localStorage.getItem('who_undercover_nick') || '';
+        let myPlayerRecord = null;           // 当前客户端对应的 players 记录 (含id, player_index等)
+        let gameState = { phase: 'waiting', turn_index: 0, civilian_word: '', undercover_word: '', votes: {}, winner: null };
+        let playersList = [];                 // 当前房间所有玩家
+        let myVoteSubmitted = false;           // 用于投票阶段UI防止重复投
+
+        // DOM 元素
+        const nicknameInput = document.getElementById('nicknameInput');
+        const joinBtn = document.getElementById('joinBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const playerListEl = document.getElementById('playerList');
+        const playerCountSpan = document.getElementById('playerCount');
+        const selfWordDisplay = document.getElementById('selfWordDisplay');
+        const gamePhaseInfo = document.getElementById('gamePhaseInfo');
+        const wordHintSpan = document.getElementById('wordHint');
+        const aliveCountSpan = document.getElementById('aliveCount');
+        const seatsContainer = document.getElementById('seatsContainer');
+        const actionArea = document.getElementById('actionArea');
+        const gameMessage = document.getElementById('gameMessage');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        // 初始化时读取本地昵称
+        if (currentNickname) nicknameInput.value = currentNickname;
+
+        // ---------- 渲染座位 (6个固定位置) ----------
+        function renderSeats() {
+            let html = '';
+            for (let i = 1; i <= 6; i++) {
+                const player = playersList.find(p => p.player_index === i);
+                const isAlive = player ? player.is_alive : true;  // 没有玩家默认存活占位
+                const isSelf = player && myPlayerRecord && player.id === myPlayerRecord.id;
+                let statusClass = 'bg-gray-100 border-gray-300';
+                let nameDisplay = '空位';
+                let identityBadge = '';
+
+                if (player) {
+                    nameDisplay = player.name.length > 6 ? player.name.slice(0,5)+'…' : player.name;
+                    statusClass = isAlive ? 'bg-white border-indigo-200' : 'bg-gray-300 border-gray-400 opacity-70';
+                    // 如果游戏进行中并且玩家已死 或 游戏结束 可展示身份（根据规则：只有自己看自己的词/身份；死后公开身份？我们简化：只有自己可见身份，死后所有人都可见）
+                    if (!isAlive || gameState.phase === 'ended') {
+                        if (player.identity === 'undercover') identityBadge = '<span class="ml-1 text-xs bg-red-200 text-red-800 px-1 rounded">卧底</span>';
+                        else if (player.identity === 'civilian') identityBadge = '<span class="ml-1 text-xs bg-green-200 text-green-800 px-1 rounded">平民</span>';
+                    }
+                }
+
+                // 高亮当前发言玩家
+                let turnHighlight = '';
+                if (gameState.phase === 'speaking' && gameState.turn_index === i && player && player.is_alive) {
+                    turnHighlight = 'turn-highlight';
+                }
+
+                html += `
+                    <div class="relative p-3 border-2 rounded-xl ${statusClass} ${turnHighlight} transition-all">
+                        <div class="absolute -top-2 -left-1 bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</div>
+                        <div class="mt-2 text-center">
+                            <div class="font-medium truncate">${nameDisplay}</div>
+                            ${identityBadge}
+                            ${isSelf ? '<span class="text-xs text-indigo-600 block mt-1">(你)</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            seatsContainer.innerHTML = html;
         }
-        document.getElementById('playerIdDisplay').innerText = 'ID: ' + playerId.slice(0, 8) + '…';
 
-        // ==================== 全局状态 ====================
-        let currentGameId = null;              // 当前进入的游戏ID
-        let currentGame = null;                 // 缓存游戏对象
-        let myColor = null;                     // 在该局中我是 black / white / spectator
-        let boardSize = 15;
-        let boardData = Array(boardSize).fill().map(() => Array(boardSize).fill(null));
-        let gameInterval = null;
-        let subscriptions = [];
+        // ---------- 渲染玩家列表 (左侧) ----------
+        function renderPlayerList() {
+            const waitingPlayers = playersList.filter(p => p.player_index === null).length;
+            const seatedPlayers = playersList.filter(p => p.player_index !== null).sort((a,b) => a.player_index - b.player_index);
+            const total = playersList.length;
+            playerCountSpan.innerText = total;
 
-        // 界面元素
-        const mainView = document.getElementById('mainView');
-        const boardView = document.getElementById('boardView');
-        const dualPanel = document.getElementById('dualPanel');
-        const watchPanel = document.getElementById('watchPanel');
-        const waitingListDiv = document.getElementById('waitingList');
-        const activeGamesDiv = document.getElementById('activeGamesList');
-        const myRecordsDiv = document.getElementById('myRecords');
-        const canvas = document.getElementById('gobanCanvas');
-        const ctx = canvas.getContext('2d');
-        const turnDisplay = document.getElementById('turnDisplay');
-        const gameStatusDiv = document.getElementById('gameStatus');
-        const playerActionsDiv = document.getElementById('playerActions');
-        const voteArea = document.getElementById('voteArea');
-        const chatMessagesDiv = document.getElementById('chatMessages');
-        const chatInput = document.getElementById('chatInput');
-        const leaveBtn = document.getElementById('leaveGameBtn');
+            if (total === 0) {
+                playerListEl.innerHTML = '<li class="text-gray-400 text-sm">暂无玩家，输入昵称加入</li>';
+                return;
+            }
 
-        // 辅助函数：显示简短提示
-        function toast(msg) {
-            let t = document.createElement('div');
-            t.className = 'toast';
-            t.innerText = msg;
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 2000);
+            let html = '';
+            seatedPlayers.forEach(p => {
+                const isSelf = (myPlayerRecord && p.id === myPlayerRecord.id) ? ' (你)' : '';
+                html += `<li class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg text-sm"><span class="w-5 h-5 bg-indigo-100 text-indigo-800 rounded-full text-xs flex items-center justify-center font-bold">${p.player_index}</span> <span class="flex-1 truncate">${p.name}${isSelf}</span> ${p.is_alive ? '🟢' : '⚫'}</li>`;
+            });
+            waitingPlayers > 0 && (html += `<li class="text-gray-400 text-sm">还有 ${waitingPlayers} 人等待分配座位…</li>`);
+            playerListEl.innerHTML = html;
         }
 
-        // 清理订阅
-        function unsubscribeAll() {
-            subscriptions.forEach(s => s?.unsubscribe?.());
-            subscriptions = [];
-        }
-
-        // ==================== 切换视图 ====================
-        function showMain() {
-            mainView.classList.remove('hidden');
-            boardView.classList.add('hidden');
-            unsubscribeAll();
-            if (gameInterval) clearInterval(gameInterval);
-            currentGameId = null;
-            loadWaitingGames();
-            loadActiveGames();
-            loadMyRecords();
-        }
-        function showBoard(gameId) {
-            mainView.classList.add('hidden');
-            boardView.classList.remove('hidden');
-            currentGameId = gameId;
-            loadGameAndSubscribe(gameId);
-        }
-
-        // ==================== 双人下棋相关 ====================
-        document.getElementById('dualBtn').addEventListener('click', ()=>{
-            dualPanel.classList.remove('hidden');
-            watchPanel.classList.add('hidden');
-            loadWaitingGames();
-        });
-        document.getElementById('backFromDual').addEventListener('click', ()=>{
-            dualPanel.classList.add('hidden');
-        });
-
-        // 发布棋局 (每分钟限一次)
-        document.getElementById('publishGameBtn').addEventListener('click', async ()=>{
-            const { data, error } = await supabase.rpc('create_waiting_game', { p_creator_id: playerId });
-            if (error) {
-                toast('发布失败: ' + (error.message.includes('one minute') ? '每分钟只能发布一次' : error.message));
+        // ---------- 更新游戏信息显示 ----------
+        function updateGameInfo() {
+            if (gameState.phase === 'waiting') {
+                gamePhaseInfo.innerHTML = `<p>阶段: <span class="font-mono bg-gray-100 px-2 py-0.5 rounded">⏳ 等待玩家</span></p><p>当前词: <span class="font-medium">???</span></p>`;
+                wordHintSpan.innerText = '???';
             } else {
-                toast('棋局已发布 ID: ' + data);
-                loadWaitingGames();
+                const phaseText = { speaking: '🗣️ 发言', voting: '🗳️ 投票', ended: '🏁 结束' }[gameState.phase] || gameState.phase;
+                gamePhaseInfo.innerHTML = `<p>阶段: <span class="font-mono bg-indigo-100 px-2 py-0.5 rounded">${phaseText}</span></p><p>本轮平民词: <span class="font-medium text-indigo-800">${gameState.civilian_word || '???'}</span></p>`;
+                wordHintSpan.innerText = gameState.civilian_word || '???';
             }
-        });
+            const alive = playersList.filter(p => p.is_alive && p.player_index).length;
+            aliveCountSpan.innerText = alive;
+        }
 
-        // 加载等待中的棋局 (60秒内)
-        async function loadWaitingGames() {
-            const sixtySecAgo = new Date(Date.now() - 60*1000).toISOString();
-            const { data, error } = await supabase
-                .from('games')
-                .select('id, created_at, creator_id')
-                .eq('status', 'waiting')
-                .gt('created_at', sixtySecAgo)
-                .order('created_at', { ascending: false });
-            if (error) return;
-            waitingListDiv.innerHTML = '';
-            for (let g of data) {
-                const item = document.createElement('div');
-                item.className = 'game-item';
-                item.innerHTML = `<span class="game-id">${g.id.slice(0,8)}</span><button class="btn" style="padding:6px 16px;">加入</button>`;
-                item.querySelector('button').addEventListener('click', async ()=>{
-                    // 加入等待棋局
-                    const { data: joinData, error: joinErr } = await supabase.rpc('join_game', { 
-                        p_game_id: g.id, 
-                        p_player_id: playerId 
-                    });
-                    if (joinErr) {
-                        toast('加入失败: ' + joinErr.message);
-                        loadWaitingGames();
+        // ---------- 获取我的身份词 (显示给自己) ----------
+        function updateSelfWord() {
+            if (!myPlayerRecord) {
+                selfWordDisplay.classList.add('hidden');
+                return;
+            }
+            const me = playersList.find(p => p.id === myPlayerRecord.id);
+            if (me && me.identity && gameState.phase !== 'waiting') {
+                const word = me.identity === 'civilian' ? gameState.civilian_word : gameState.undercover_word;
+                selfWordDisplay.innerHTML = `🔑 你的身份: <strong>${me.identity === 'civilian' ? '平民' : '卧底'}</strong>  你的词: <span class="font-mono font-bold text-indigo-700">${word}</span>`;
+                selfWordDisplay.classList.remove('hidden');
+            } else {
+                selfWordDisplay.classList.add('hidden');
+            }
+        }
+
+        // ---------- 操作区域动态渲染 ----------
+        function renderActionArea() {
+            if (!myPlayerRecord) {
+                actionArea.innerHTML = `<div class="text-center text-gray-400">👈 请先进入房间</div>`;
+                return;
+            }
+            const me = playersList.find(p => p.id === myPlayerRecord.id);
+            if (!me || !me.player_index) {
+                actionArea.innerHTML = `<div class="text-center text-gray-400">⏳ 等待分配座位...</div>`;
+                return;
+            }
+
+            const idx = me.player_index;
+            const isAlive = me.is_alive;
+            const phase = gameState.phase;
+
+            // 发言阶段
+            if (phase === 'speaking') {
+                const currentTurn = gameState.turn_index;
+                const isMyTurn = (currentTurn === idx && isAlive);
+                const alivePlayers = playersList.filter(p => p.is_alive && p.player_index).length;
+                if (!isAlive) {
+                    actionArea.innerHTML = `<div class="text-center text-red-400">💀 你已经出局，请等待游戏结束</div>`;
+                } else if (isMyTurn) {
+                    // 显示倒计时 (30秒)
+                    const turnStart = new Date(gameState.turn_start_time || Date.now()).getTime();
+                    const elapsed = (Date.now() - turnStart) / 1000;
+                    const remain = Math.max(0, 30 - Math.floor(elapsed));
+                    actionArea.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-lg font-semibold text-amber-600">轮到你了！发言倒计时 ${remain}s</p>
+                            <button id="skipTurnBtn" class="mt-3 bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-full text-sm font-medium">跳过发言 (结束)</button>
+                        </div>
+                    `;
+                    // 绑定跳过事件
+                    setTimeout(() => {
+                        document.getElementById('skipTurnBtn')?.addEventListener('click', () => nextSpeaker());
+                    }, 50);
+                    // 自动倒计时跳过
+                    if (remain <= 0) {
+                        nextSpeaker();
                     } else {
-                        // 成功加入，跳转棋盘
-                        showBoard(g.id);
+                        setTimeout(() => { if (gameState.phase === 'speaking' && gameState.turn_index === idx) nextSpeaker(); }, remain * 1000 + 500);
                     }
-                });
-                waitingListDiv.appendChild(item);
-            }
-        }
-
-        // ==================== 观战 ====================
-        document.getElementById('watchBtn').addEventListener('click', ()=>{
-            watchPanel.classList.remove('hidden');
-            dualPanel.classList.add('hidden');
-            loadActiveGames();
-        });
-        document.getElementById('backFromWatch').addEventListener('click', ()=>{
-            watchPanel.classList.add('hidden');
-        });
-        document.getElementById('searchGameBtn').addEventListener('click', ()=>{
-            let searchId = document.getElementById('searchGameId').value.trim();
-            if (searchId) searchGameById(searchId);
-        });
-        async function searchGameById(id) {
-            const { data, error } = await supabase.from('games').select('*').eq('id', id).eq('status','active').single();
-            if (error || !data) { toast('未找到进行中的对局'); return; }
-            // 直接观战进入
-            showBoard(id);
-        }
-
-        async function loadActiveGames() {
-            const { data, error } = await supabase
-                .from('games')
-                .select('id, black_player_id, white_player_id, created_at')
-                .eq('status', 'active')
-                .order('created_at', { ascending: false });
-            if (error) return;
-            activeGamesDiv.innerHTML = '';
-            for (let g of data) {
-                const item = document.createElement('div');
-                item.className = 'game-item';
-                item.innerHTML = `<span class="game-id">${g.id.slice(0,8)}</span><span>⚫${g.black_player_id?.slice(0,4)} ⚪${g.white_player_id?.slice(0,4)}</span><button class="btn" style="padding:4px 12px;">观战</button>`;
-                item.querySelector('button').addEventListener('click', ()=> showBoard(g.id));
-                activeGamesDiv.appendChild(item);
-            }
-        }
-
-        // ==================== 对局记录 ====================
-        async function loadMyRecords() {
-            const dayAgo = new Date(Date.now() - 24*60*60*1000).toISOString();
-            const { data, error } = await supabase
-                .from('games')
-                .select('id, winner, black_player_id, white_player_id, finished_at')
-                .eq('status', 'finished')
-                .or(`black_player_id.eq.${playerId},white_player_id.eq.${playerId}`)
-                .gt('finished_at', dayAgo)
-                .order('finished_at', { ascending: false });
-            if (error) return;
-            myRecordsDiv.innerHTML = '';
-            if (!data.length) { myRecordsDiv.innerHTML = '<div class="game-item">暂无记录</div>'; return; }
-            for (let g of data) {
-                let win = g.winner === 'black' ? '⚫胜' : '⚪胜';
-                let me = (g.black_player_id === playerId) ? '⚫' : '⚪';
-                let item = document.createElement('div');
-                item.className = 'game-item';
-                item.innerHTML = `<span>${g.id.slice(0,8)}</span> <span>${win} 我:${me}</span>`;
-                myRecordsDiv.appendChild(item);
-            }
-        }
-
-        // ==================== 棋盘与游戏逻辑 ====================
-        async function loadGameAndSubscribe(gameId) {
-            unsubscribeAll();
-            // 获取游戏详情
-            const { data, error } = await supabase.from('games').select('*').eq('id', gameId).single();
-            if (error || !data) { toast('对局不存在'); showMain(); return; }
-            currentGame = data;
-            // 判断我的角色
-            if (data.black_player_id === playerId) myColor = 'black';
-            else if (data.white_player_id === playerId) myColor = 'white';
-            else myColor = 'spectator';
-
-            boardData = data.board || Array(boardSize).fill().map(()=>Array(boardSize).fill(null));
-            drawBoard();
-            updateTurnAndStatus();
-
-            // 订阅游戏变化
-            const gameSub = supabase.channel(`game:${gameId}`)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, payload => {
-                    currentGame = payload.new;
-                    boardData = payload.new.board || boardData;
-                    drawBoard();
-                    updateTurnAndStatus();
-                    if (payload.new.status === 'finished') {
-                        // 显示胜利信息
-                        gameStatusDiv.innerText = payload.new.winner === 'black' ? '⚫ 黑胜' : '⚪ 白胜';
-                        // 显示再战/退出按钮 (仅玩家)
-                        showPostGameButtons();
-                        // 显示观战点赞区
-                        if (myColor === 'spectator') showVoteButtons();
-                    } else {
-                        document.getElementById('voteArea').classList.add('hidden');
-                    }
-                })
-                .subscribe();
-            subscriptions.push(gameSub);
-
-            // 订阅聊天
-            const chatSub = supabase.channel(`chat:${gameId}`)
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `game_id=eq.${gameId}` }, payload => {
-                    addChatMessage(payload.new);
-                })
-                .subscribe();
-            subscriptions.push(chatSub);
-
-            // 加载最近聊天
-            const { data: msgs } = await supabase.from('messages').select('*').eq('game_id', gameId).order('created_at', { ascending: true }).limit(50);
-            chatMessagesDiv.innerHTML = '';
-            msgs?.forEach(m => addChatMessage(m));
-
-            // 订阅点赞(用于更新界面)
-            const voteSub = supabase.channel(`vote:${gameId}`)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'votes', filter: `game_id=eq.${gameId}` }, () => {
-                    if (currentGame?.status === 'finished') showVoteButtons(); // 刷新点赞显示
-                })
-                .subscribe();
-            subscriptions.push(voteSub);
-        }
-
-        function addChatMessage(msg) {
-            let div = document.createElement('div');
-            div.className = 'chat-msg';
-            div.innerHTML = `<small>${msg.player_id.slice(0,4)}:</small> ${msg.message}`;
-            chatMessagesDiv.appendChild(div);
-            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-        }
-
-        // 发送聊天
-        document.getElementById('sendChatBtn').addEventListener('click', async ()=>{
-            if (!currentGameId) return;
-            let text = chatInput.value.trim();
-            if (!text) return;
-            if (text.length > 40) text = text.slice(0,40);
-            await supabase.from('messages').insert({ game_id: currentGameId, player_id: playerId, message: text });
-            chatInput.value = '';
-        });
-
-        // 绘制棋盘
-        function drawBoard() {
-            if (!ctx) return;
-            const size = boardSize;
-            const cell = canvas.width / size;
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = '#e8d5b5';
-            ctx.fillRect(0,0,canvas.width,canvas.height);
-            ctx.strokeStyle = '#5d3a1a';
-            ctx.lineWidth = 1.5;
-            for (let i=0; i<size; i++) {
-                ctx.beginPath();
-                ctx.moveTo(cell/2 + i*cell, cell/2);
-                ctx.lineTo(cell/2 + i*cell, canvas.height - cell/2);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(cell/2, cell/2 + i*cell);
-                ctx.lineTo(canvas.width - cell/2, cell/2 + i*cell);
-                ctx.stroke();
-            }
-            // 画星位
-            let stars = [3,7,11]; // 15x15
-            for (let r of stars) for (let c of stars) {
-                ctx.beginPath();
-                ctx.arc(cell/2 + c*cell, cell/2 + r*cell, cell*0.15, 0, 2*Math.PI);
-                ctx.fillStyle = '#5d3a1a';
-                ctx.fill();
-            }
-            // 画棋子
-            for (let r=0; r<size; r++) {
-                for (let c=0; c<size; c++) {
-                    let val = boardData[r]?.[c];
-                    if (!val) continue;
-                    ctx.beginPath();
-                    ctx.arc(cell/2 + c*cell, cell/2 + r*cell, cell*0.42, 0, 2*Math.PI);
-                    let gradient = ctx.createRadialGradient(cell/2 + c*cell-3, cell/2 + r*cell-3, 5, cell/2 + c*cell, cell/2 + r*cell, cell*0.5);
-                    if (val === 'black') {
-                        gradient.addColorStop(0, '#666');
-                        gradient.addColorStop(1, '#111');
-                    } else {
-                        gradient.addColorStop(0, '#f9f9f9');
-                        gradient.addColorStop(1, '#ccc');
-                    }
-                    ctx.fillStyle = gradient;
-                    ctx.fill();
-                    ctx.strokeStyle = '#333';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
+                } else {
+                    const speaker = playersList.find(p => p.player_index === currentTurn)?.name || '未知';
+                    actionArea.innerHTML = `<div class="text-center text-gray-600">🎤 当前发言: <span class="font-medium">${speaker}</span> (剩余时间约30秒)</div>`;
                 }
             }
-        }
-
-        // 落子事件
-        canvas.addEventListener('click', async (e) => {
-            if (!currentGame || currentGame.status !== 'active') return;
-            // 检查是否轮到我
-            if (myColor !== currentGame.current_turn) { toast('还没轮到你'); return; }
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            let x = (e.clientX - rect.left) * scaleX;
-            let y = (e.clientY - rect.top) * scaleY;
-            const cell = canvas.width / boardSize;
-            let col = Math.floor(x / cell);
-            let row = Math.floor(y / cell);
-            if (row<0 || row>=boardSize || col<0 || col>=boardSize) return;
-            if (boardData[row]?.[col] !== null) return;
-
-            // 调用落子RPC
-            const { data, error } = await supabase.rpc('place_piece', {
-                p_game_id: currentGameId,
-                p_row: row,
-                p_col: col,
-                p_player_id: playerId
-            });
-            if (error) { toast(error.message); }
-        });
-
-        function updateTurnAndStatus() {
-            if (!currentGame) return;
-            if (currentGame.status === 'waiting') turnDisplay.innerText = '等待对手……';
-            else if (currentGame.status === 'active') {
-                turnDisplay.innerText = currentGame.current_turn === 'black' ? '⚫ 黑方落子' : '⚪ 白方落子';
-                gameStatusDiv.innerText = '';
-            } else if (currentGame.status === 'finished') {
-                turnDisplay.innerText = '对局结束';
-                gameStatusDiv.innerText = currentGame.winner === 'black' ? '⚫ 黑胜' : '⚪ 白胜';
+            // 投票阶段
+            else if (phase === 'voting') {
+                if (!isAlive) {
+                    actionArea.innerHTML = `<div class="text-center text-gray-400">💀 已出局，等待投票结果</div>`;
+                } else {
+                    // 检查是否投过票
+                    const alreadyVoted = gameState.votes && gameState.votes[idx] !== undefined;
+                    if (alreadyVoted) {
+                        actionArea.innerHTML = `<div class="text-center text-green-600">✔️ 你已投票，等待其他玩家</div>`;
+                    } else {
+                        // 生成存活玩家投票按钮 (包括弃票)
+                        const aliveOptions = playersList.filter(p => p.is_alive && p.player_index);
+                        let btnsHtml = '<p class="mb-2 font-medium">投给谁？</p><div class="flex flex-wrap gap-2 justify-center">';
+                        aliveOptions.forEach(p => {
+                            btnsHtml += `<button class="vote-btn bg-white border border-indigo-300 hover:bg-indigo-50 px-3 py-1 rounded-full text-sm" data-target="${p.player_index}">${p.player_index}号 ${p.name}</button>`;
+                        });
+                        btnsHtml += `<button class="vote-btn bg-gray-200 hover:bg-gray-300 px-4 py-1 rounded-full text-sm" data-target="-1">弃票</button>`;
+                        btnsHtml += '</div>';
+                        actionArea.innerHTML = btnsHtml;
+                        // 绑定投票事件
+                        setTimeout(() => {
+                            document.querySelectorAll('.vote-btn').forEach(btn => {
+                                btn.addEventListener('click', (e) => {
+                                    const target = parseInt(e.target.dataset.target);
+                                    submitVote(idx, target);
+                                });
+                            });
+                        }, 50);
+                    }
+                }
             }
-        }
-
-        function showPostGameButtons() {
-            if (myColor === 'spectator') return;
-            playerActionsDiv.innerHTML = `
-                <button class="btn" id="rematchBtn">🔄 再战</button>
-                <button class="btn" id="exitAfterGameBtn">🚪 退出</button>
-            `;
-            document.getElementById('rematchBtn').onclick = async ()=>{
-                // 简化: 直接请求再战 (实际应实现确认机制)
-                toast('再战功能需对方确认(演示简化)');
-            };
-            document.getElementById('exitAfterGameBtn').onclick = async ()=>{
-                await supabase.from('games').delete().eq('id', currentGameId);
-                toast('已退出对局');
-                showMain();
-            };
-        }
-
-        function showVoteButtons() {
-            if (myColor !== 'spectator' || currentGame?.status !== 'finished') return;
-            voteArea.classList.remove('hidden');
-            voteArea.innerHTML = `
-                <button class="vote-btn" id="voteBlack">👍 黑方</button>
-                <button class="vote-btn" id="voteWhite">👍 白方</button>
-            `;
-            document.getElementById('voteBlack').onclick = async ()=> voteFor('black');
-            document.getElementById('voteWhite').onclick = async ()=> voteFor('white');
-        }
-
-        async function voteFor(color) {
-            await supabase.from('votes').upsert({ game_id: currentGameId, player_id: playerId, vote_for: color }, { onConflict: 'player_id, game_id' });
-            toast('点赞记录');
-        }
-
-        // 退出按钮
-        leaveBtn.addEventListener('click', async ()=>{
-            if (currentGame && (myColor === 'black' || myColor === 'white') && currentGame.status === 'active') {
-                // 一方退出 => 另一方胜利，删除对局
-                await supabase.rpc('forfeit_game', { p_game_id: currentGameId, p_loser_id: playerId });
+            // 结束阶段
+            else if (phase === 'ended') {
+                const winner = gameState.winner;
+                actionArea.innerHTML = `<div class="text-center text-xl font-bold">${winner === 'civilian' ? '🎉 平民胜利！' : (winner === 'undercover' ? '🕵️ 卧底胜利！' : '游戏结束')}</div>`;
             } else {
-                // 仅仅是观战或未开始，直接退出
+                actionArea.innerHTML = `<div class="text-center text-gray-400">等待游戏开始...</div>`;
             }
-            showMain();
+        }
+
+        // ---------- 发言轮到下一人 (跳过) ----------
+        async function nextSpeaker() {
+            if (!myPlayerRecord) return;
+            const me = playersList.find(p => p.id === myPlayerRecord.id);
+            if (!me || !me.is_alive) return;
+            const currentTurn = gameState.turn_index;
+            if (me.player_index !== currentTurn) return; // 只有当前发言者能推进
+
+            // 找到下一个存活的玩家索引
+            let next = currentTurn;
+            const aliveIndices = playersList.filter(p => p.is_alive && p.player_index).map(p => p.player_index).sort((a,b)=>a-b);
+            const pos = aliveIndices.indexOf(currentTurn);
+            if (pos === -1) return; // 自己竟然不在存活列表？
+            if (pos + 1 < aliveIndices.length) {
+                next = aliveIndices[pos + 1];
+            } else {
+                // 发言结束，进入投票阶段
+                await supabase
+                    .from('games')
+                    .update({ phase: 'voting', votes: {} })  // 清空上一轮投票
+                    .eq('id', 1)
+                    .eq('phase', 'speaking');   // 防止覆盖
+                return;
+            }
+
+            // 更新turn_index和时间
+            await supabase
+                .from('games')
+                .update({ turn_index: next, turn_start_time: new Date().toISOString() })
+                .eq('id', 1)
+                .eq('phase', 'speaking')
+                .eq('turn_index', currentTurn); // 乐观锁
+        }
+
+        // ---------- 提交投票 ----------
+        async function submitVote(voterIdx, targetIdx) {
+            if (!myPlayerRecord) return;
+            // targetIdx = -1 表示弃票
+            const me = playersList.find(p => p.id === myPlayerRecord.id);
+            if (!me || me.player_index !== voterIdx) return;
+
+            // 原子更新: 在votes json中添加键值对 (voter: target)
+            const voteKey = voterIdx.toString();
+            const newVote = { [voteKey]: targetIdx };
+            const { error } = await supabase
+                .rpc('append_vote', { game_id: 1, voter_key: voteKey, target: targetIdx }); 
+            // 为了简化，也可以用直接update + 条件，但为了原子性我们建议使用存储过程。这里采用update条件(但可能并发覆盖，不过游戏人数少可以)
+            // 为了代码完整性，我们使用普通update并依赖jsonb concatenation 和条件.
+            // 由于没有RPC，用下面方式:
+            const { data: game } = await supabase.from('games').select('votes').eq('id',1).single();
+            if (game && game.votes && game.votes[voteKey] !== undefined) return; // 已经投票
+            await supabase
+                .from('games')
+                .update({ votes: { ...game.votes, [voteKey]: targetIdx } })
+                .eq('id', 1)
+                .filter('votes->' + voteKey, 'is', null);  // 避免覆盖
+        }
+
+        // ---------- 监听实时数据 ----------
+        function subscribeAll() {
+            // 监听games表 (id=1)
+            supabase.channel('game-channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: 'id=eq.1' }, payload => {
+                    if (payload.new) {
+                        gameState = { ...gameState, ...payload.new };
+                        // 自动触发重新渲染
+                        renderSeats();
+                        updateGameInfo();
+                        renderActionArea();
+                        updateSelfWord();
+                        // 检查投票完成 (存活玩家数)
+                        if (gameState.phase === 'voting') {
+                            const alive = playersList.filter(p => p.is_alive && p.player_index).length;
+                            const votedCount = Object.keys(gameState.votes || {}).length;
+                            if (alive > 0 && votedCount >= alive) {
+                                tallyVotesAndEliminate();
+                            }
+                        }
+                    }
+                })
+                .subscribe();
+
+            // 监听players表
+            supabase.channel('players-channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: 'game_id=eq.1' }, () => {
+                    refreshPlayers();
+                })
+                .subscribe();
+        }
+
+        // 刷新玩家列表
+        async function refreshPlayers() {
+            const { data, error } = await supabase
+                .from('players')
+                .select('*')
+                .eq('game_id', 1)
+                .order('created_at');
+            if (error) return;
+            playersList = data;
+            // 同步我自己的记录
+            myPlayerRecord = playersList.find(p => p.id === currentClientId) || null;
+            renderPlayerList();
+            renderSeats();
+            updateGameInfo();
+            renderActionArea();
+            updateSelfWord();
+            // 自动开始检测 (等待满6人无索引, 且游戏waiting)
+            autoStartIfFull();
+        }
+
+        // 自动开始游戏 (满6人且game phase = waiting)
+        async function autoStartIfFull() {
+            if (gameState.phase !== 'waiting') return;
+            const seated = playersList.filter(p => p.player_index === null).length === 0 && playersList.length === 6;
+            if (!seated) return;
+
+            // 锁定并初始化游戏
+            const { data: lock } = await supabase
+                .from('games')
+                .update({ phase: 'speaking' })
+                .eq('id', 1)
+                .eq('phase', 'waiting')
+                .select()
+                .single();
+
+            if (!lock) return; // 已被别人初始化
+
+            // 随机词
+            const randomPair = WORD_PAIRS[Math.floor(Math.random() * WORD_PAIRS.length)];
+            const civilianW = randomPair[0];
+            const undercoverW = randomPair[1];
+
+            // 为6个玩家随机分配1-6索引，并随机选一个卧底
+            const allPlayers = [...playersList];
+            const shuffled = allPlayers.sort(() => 0.5 - Math.random());
+            const updates = [];
+            const undercoverIndex = Math.floor(Math.random() * 6) + 1; // 1-6
+            for (let i = 0; i < 6; i++) {
+                const player = shuffled[i];
+                const idx = i + 1;
+                const identity = (idx === undercoverIndex) ? 'undercover' : 'civilian';
+                updates.push(supabase
+                    .from('players')
+                    .update({ player_index: idx, identity: identity, is_alive: true })
+                    .eq('id', player.id)
+                );
+            }
+            await Promise.all(updates);
+            // 更新游戏词和回合
+            await supabase
+                .from('games')
+                .update({ 
+                    civilian_word: civilianW, 
+                    undercover_word: undercoverW,
+                    turn_index: 1,  // 从1号开始
+                    turn_start_time: new Date().toISOString(),
+                    votes: {},
+                    winner: null
+                })
+                .eq('id', 1);
+        }
+
+        // 投票统计 & 淘汰 & 游戏结束判定
+        async function tallyVotesAndEliminate() {
+            if (gameState.phase !== 'voting') return;
+            const votes = gameState.votes || {};
+            const alivePlayers = playersList.filter(p => p.is_alive && p.player_index);
+            const voteCount = {};
+            alivePlayers.forEach(p => voteCount[p.player_index] = 0);
+            let votedAny = false;
+            Object.values(votes).forEach(target => {
+                if (target !== -1) { voteCount[target] = (voteCount[target] || 0) + 1; votedAny = true; }
+            });
+            if (!votedAny) { // 全弃票，无人出局
+                await moveToNextRoundWithoutElimination();
+                return;
+            }
+            let maxVotes = Math.max(...Object.values(voteCount));
+            let maxPlayers = Object.keys(voteCount).filter(k => voteCount[k] === maxVotes).map(Number);
+            if (maxPlayers.length > 1) { // 平票 无人出局
+                await moveToNextRoundWithoutElimination();
+                return;
+            }
+            const eliminatedIdx = maxPlayers[0];
+            // 淘汰该玩家
+            const eliminatedPlayer = playersList.find(p => p.player_index === eliminatedIdx);
+            if (!eliminatedPlayer) return;
+            await supabase.from('players').update({ is_alive: false }).eq('id', eliminatedPlayer.id);
+
+            // 检查游戏结束
+            const newPlayers = playersList.map(p => p.id === eliminatedPlayer.id ? {...p, is_alive: false} : p);
+            const alive = newPlayers.filter(p => p.is_alive && p.player_index);
+            const undercoverAlive = alive.find(p => p.identity === 'undercover');
+            if (!undercoverAlive) {
+                await supabase.from('games').update({ phase: 'ended', winner: 'civilian' }).eq('id',1);
+            } else if (alive.length <= 2) { // 只剩2人且卧底在其中
+                await supabase.from('games').update({ phase: 'ended', winner: 'undercover' }).eq('id',1);
+            } else {
+                // 下一轮发言
+                await moveToNextRoundWithoutElimination();
+            }
+        }
+
+        async function moveToNextRoundWithoutElimination() {
+            const aliveIndices = playersList.filter(p => p.is_alive && p.player_index).map(p => p.player_index).sort();
+            const firstSpeaker = aliveIndices[0] || 1;
+            await supabase
+                .from('games')
+                .update({ phase: 'speaking', turn_index: firstSpeaker, turn_start_time: new Date().toISOString(), votes: {} })
+                .eq('id',1);
+        }
+
+        // ---------- 加入/离开 ----------
+        joinBtn.addEventListener('click', async () => {
+            const nick = nicknameInput.value.trim() || '匿名';
+            currentNickname = nick;
+            localStorage.setItem('who_undercover_nick', nick);
+            // 先检查是否已存在相同clientId
+            const { data: existing } = await supabase.from('players').select('id').eq('id', currentClientId).maybeSingle();
+            if (existing) {
+                await supabase.from('players').update({ name: nick, last_seen: new Date() }).eq('id', currentClientId);
+            } else {
+                await supabase.from('players').insert({ id: currentClientId, game_id: 1, name: nick, player_index: null, identity: null });
+            }
+            refreshPlayers();
         });
 
-        // ==================== 初始化加载 ====================
-        showMain();
-        setInterval(()=>{
-            if (!currentGameId) {
-                loadWaitingGames();
-                loadActiveGames();
-                loadMyRecords();
+        leaveBtn.addEventListener('click', async () => {
+            if (currentClientId) {
+                await supabase.from('players').delete().eq('id', currentClientId);
+                myPlayerRecord = null;
+                refreshPlayers();
             }
-        }, 5000);
+        });
+
+        // 页面关闭前简单清理 (可选)
+        window.addEventListener('beforeunload', () => {
+            if (currentClientId) {
+                supabase.from('players').delete().eq('id', currentClientId).then();
+            }
+        });
+
+        // 初始化订阅 & 拉取数据
+        async function init() {
+            // 预先获取game
+            const { data: game } = await supabase.from('games').select('*').eq('id',1).single();
+            if (game) gameState = { ...gameState, ...game };
+            await refreshPlayers();
+            subscribeAll();
+            // 每5秒刷新玩家活跃 (简单保活)
+            setInterval(() => {
+                if (currentClientId) {
+                    supabase.from('players').update({ last_seen: new Date() }).eq('id', currentClientId).then();
+                }
+            }, 10000);
+        }
+        init();
     })();
 </script>
 
-<!-- 说明：由于篇幅，数据库函数需在Supabase SQL编辑器中执行，见下方SQL注释 -->
-<!-- 请先执行以下SQL创建表和函数，并替换上方的 SUPABASE_URL 和 SUPABASE_ANON_KEY -->
+<!-- 重要：请在运行前替换 SUPABASE_URL 和 SUPABASE_ANON_KEY，并在SQL中执行建表语句 -->
+<!-- 
+  ==========  Supabase 建表 SQL (必须执行) ==========
+  CREATE TABLE games (
+    id integer primary key default 1,
+    phase text not null default 'waiting',
+    turn_index integer default 0,
+    turn_start_time timestamp with time zone default now(),
+    civilian_word text,
+    undercover_word text,
+    votes jsonb default '{}'::jsonb,
+    winner text,
+    created_at timestamp with time zone default now()
+  );
+  INSERT INTO games (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+  CREATE TABLE players (
+    id uuid primary key default gen_random_uuid(),
+    game_id integer not null default 1 references games(id),
+    name text not null,
+    player_index integer check (player_index between 1 and 6),
+    identity text check (identity in ('civilian','undercover')),
+    is_alive boolean default true,
+    online boolean default true,
+    last_seen timestamp with time zone default now(),
+    unique(game_id, player_index)
+  );
+
+  -- 开启实时功能
+  ALTER PUBLICATION supabase_realtime ADD TABLE games;
+  ALTER PUBLICATION supabase_realtime ADD TABLE players;
+
+  -- 可选：允许匿名操作（开发用，生产请配置RLS）
+-->
 </body>
 </html>
